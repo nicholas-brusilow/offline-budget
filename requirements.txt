@@ -1,0 +1,2 @@
+duckdb          #a package for SQL-like pandas exploration
+
