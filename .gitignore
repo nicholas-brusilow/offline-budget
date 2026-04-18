@@ -1,2 +1,6 @@
 *.ipynb_checkpoints
 *.csv
+.ipython/
+.jupyter/
+.local/
+*.CSV
