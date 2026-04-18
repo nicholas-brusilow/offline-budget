@@ -4,3 +4,6 @@
 .jupyter/
 .local/
 *.CSV
+.bash_history
+.cache/
+.streamlit/
