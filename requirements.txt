@@ -1,2 +1,2 @@
-duckdb          #a package for SQL-like pandas exploration
-
+duckdb          # a package for SQL-like pandas exploration
+streamlit       # a package for GUI apps
