@@ -17,7 +17,9 @@ EXPENDITURE_CATEGORIES = [
     "eating out",
     "shopping",
     "services",
-    "insurance"
+    "insurance",
+    "religious",
+    "tax"
 ]
 
 ALL_SUBCATEGORIES = [
@@ -25,6 +27,7 @@ ALL_SUBCATEGORIES = [
     "transport:gas",
     "transport:tolls",
     "transport:parking",
+    "automotive:parts/fluids",
     "groceries:staples",
     "groceries:coffee",
     "health and wellness:supplements",
@@ -34,15 +37,24 @@ ALL_SUBCATEGORIES = [
     "utilities:internet",
     "utilities:compost",
     "utilities:AI subscription",
+    "utilities:water",
+    "utilities:gas",
     "eating out:coffee",
+    "eating out:treats",
     "eating out:restaurant",
     "shopping:clothes",
     "shopping:appliances",
     "shopping:tools",
+    "shopping:office",
     "services:cleaners",
     "insurance:home",
     "insurance:auto",
-    "insurance:health/life"
+    "insurance:health/life",
+    "religious:candles",
+    "religious:donation",
+    "tax:payments",
+    "tax:software",
+    "pharmacy"
 ]
 
 MERCHANTS = [
@@ -60,6 +72,7 @@ NECESSITY = [
     "basic",
     "middle",
     "luxury",
+    "donation"
 ]
 
 DEPOSIT_CATEGORIES = [
@@ -68,16 +81,20 @@ DEPOSIT_CATEGORIES = [
     "deposit",
 ]
 
+DELETE_COL_CONFIG = {"_delete": st.column_config.CheckboxColumn("🗑️", default=False)}
+
 EXPENDITURE_COLUMN_CONFIG = {
     "category": st.column_config.SelectboxColumn("Category", options=[""] + EXPENDITURE_CATEGORIES),
     "subcategory": st.column_config.SelectboxColumn("Subcategory", options=[""] + ALL_SUBCATEGORIES),
     "merchant": st.column_config.SelectboxColumn("Merchant", options=[""] + MERCHANTS),
     "ignore": st.column_config.SelectboxColumn("Ignore", options=["False", "True"]),
     "necessity": st.column_config.SelectboxColumn("Necessity", options=[""] + NECESSITY),
+    **DELETE_COL_CONFIG,
 }
 
 DEPOSIT_COLUMN_CONFIG = {
     "category": st.column_config.SelectboxColumn("Category", options=[""] + DEPOSIT_CATEGORIES),
+    **DELETE_COL_CONFIG,
 }
 
 DISABLED_COLS = ["date", "description", "amount", "account"]
@@ -88,18 +105,22 @@ def load_expenditures(path: Path) -> pd.DataFrame:
     df["ignore"] = df["ignore"].astype(str)
     for col in ["category", "subcategory", "merchant", "necessity"]:
         df[col] = df[col].fillna("").astype(str)
-    return df
+    df["_delete"] = False
+    return df[["date", "description", "amount", "account",
+               "category", "subcategory", "necessity", "merchant", "ignore", "_delete"]]
 
 
 def load_deposits(path: Path) -> pd.DataFrame:
     df = pd.read_csv(path, index_col=0)
     df["category"] = df["category"].fillna("").astype(str)
+    df["_delete"] = False
     return df
 
 
 st.set_page_config(page_title="Budget Transactions", layout="wide")
 
-tab = st.sidebar.radio("View", ["Expenditures", "Deposits"])
+tab = st.sidebar.radio("Transactions", ["Expenditures", "Deposits"])
+st.sidebar.markdown("**Single Period**")
 
 if tab == "Expenditures":
     st.title("Expenditures")
@@ -127,7 +148,17 @@ edited = st.data_editor(
     disabled=DISABLED_COLS,
 )
 
-if st.button("Save to CSV"):
-    st.session_state[key] = edited
-    edited.to_csv(path)
-    st.success("Saved.")
+col1, col2 = st.columns([1, 8])
+with col1:
+    if st.button("Delete Selected"):
+        kept = edited[~edited["_delete"]].copy()
+        kept["_delete"] = False
+        kept.drop(columns=["_delete"]).to_csv(path)
+        st.session_state[key] = kept
+        del st.session_state[f"{key}_editor"]
+        st.rerun()
+with col2:
+    if st.button("Save to CSV"):
+        st.session_state[key] = edited
+        edited.drop(columns=["_delete"]).to_csv(path)
+        st.success("Saved.")
