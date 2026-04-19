@@ -120,14 +120,14 @@ column_config = EXPENDITURE_COLUMN_CONFIG if tab == "Expenditures" else DEPOSIT_
 
 edited = st.data_editor(
     st.session_state[key],
+    key=f"{key}_editor",
     use_container_width=True,
     num_rows="fixed",
     column_config=column_config,
     disabled=DISABLED_COLS,
 )
 
-st.session_state[key] = edited
-
 if st.button("Save to CSV"):
+    st.session_state[key] = edited
     edited.to_csv(path)
     st.success("Saved.")
