@@ -86,7 +86,7 @@ DISABLED_COLS = ["date", "description", "amount", "account"]
 def load_expenditures(path: Path) -> pd.DataFrame:
     df = pd.read_csv(path, index_col=0)
     df["ignore"] = df["ignore"].astype(str)
-    for col in ["category", "subcategory", "merchant"]:
+    for col in ["category", "subcategory", "merchant", "necessity"]:
         df[col] = df[col].fillna("").astype(str)
     return df
 
@@ -126,7 +126,8 @@ edited = st.data_editor(
     disabled=DISABLED_COLS,
 )
 
+st.session_state[key] = edited
+
 if st.button("Save to CSV"):
     edited.to_csv(path)
-    st.session_state[key] = edited
     st.success("Saved.")
