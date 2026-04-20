@@ -21,7 +21,8 @@ EXPENDITURE_CATEGORIES = [
     "services",
     "insurance",
     "religious",
-    "tax"
+    "tax",
+    "investments"
 ]
 
 ALL_SUBCATEGORIES = [
@@ -57,7 +58,9 @@ ALL_SUBCATEGORIES = [
     "religious:donation",
     "tax:payments",
     "tax:software",
-    "pharmacy"
+    "pharmacy",
+    "investments:metals",
+    "investments:stocks"
 ]
 
 MERCHANTS = [
@@ -75,7 +78,8 @@ NECESSITY = [
     "basic",
     "middle",
     "luxury",
-    "donation"
+    "donation",
+    "investment"
 ]
 
 DEPOSIT_CATEGORIES = [
@@ -176,25 +180,100 @@ if view == "Pie Chart":
     else:
         filtered["amount"] = filtered["amount"].abs()
 
-        # Category pie chart
+        # ── Category pie chart with per-category checkboxes ──────────────────
         cat_totals = (
             filtered[filtered["category"] != ""]
             .groupby("category", as_index=False)["amount"]
             .sum()
+            .sort_values("category")
         )
 
         if cat_totals.empty:
             st.warning("No categorised transactions in this period.")
         else:
-            fig_cat = px.pie(
-                cat_totals, values="amount", names="category",
-                title=f"{data_type} by Category"
-            )
-            fig_cat.update_traces(textposition="inside", textinfo="percent+label")
-            st.plotly_chart(fig_cat, use_container_width=True)
+            st.subheader(f"{data_type} by Category")
+            chk_col, chart_col = st.columns([1, 3])
 
-        # Subcategory breakdown (expenditures only)
+            with chk_col:
+                btn_a, btn_b = st.columns(2)
+                with btn_a:
+                    if st.button("All", key="cat_all"):
+                        for _c in cat_totals["category"]:
+                            st.session_state[f"cat_check_{_c}"] = True
+                with btn_b:
+                    if st.button("None", key="cat_none"):
+                        for _c in cat_totals["category"]:
+                            st.session_state[f"cat_check_{_c}"] = False
+
+                selected_cats = [
+                    cat for cat in cat_totals["category"]
+                    if st.checkbox(cat, value=True, key=f"cat_check_{cat}")
+                ]
+
+            with chart_col:
+                chart_data = cat_totals[cat_totals["category"].isin(selected_cats)]
+                if chart_data.empty:
+                    st.info("No categories selected.")
+                else:
+                    fig_cat = px.pie(
+                        chart_data, values="amount", names="category",
+                        title=f"{data_type} by Category",
+                    )
+                    fig_cat.update_traces(
+                        textposition="inside",
+                        texttemplate="<b>%{label}</b><br>%{percent}<br>$%{value:,.2f}",
+                    )
+                    st.plotly_chart(fig_cat, use_container_width=True)
+
         if data_type == "Expenditures":
+            # ── Necessity level pie chart ─────────────────────────────────────
+            st.markdown("---")
+            st.subheader("Expenditures by Necessity Level")
+
+            nec_totals = (
+                filtered[filtered["necessity"] != ""]
+                .groupby("necessity", as_index=False)["amount"]
+                .sum()
+                .sort_values("necessity")
+            )
+
+            if nec_totals.empty:
+                st.info("No necessity data available for this period.")
+            else:
+                nec_chk_col, nec_chart_col = st.columns([1, 3])
+
+                with nec_chk_col:
+                    nec_btn_a, nec_btn_b = st.columns(2)
+                    with nec_btn_a:
+                        if st.button("All", key="nec_all"):
+                            for _n in nec_totals["necessity"]:
+                                st.session_state[f"nec_check_{_n}"] = True
+                    with nec_btn_b:
+                        if st.button("None", key="nec_none"):
+                            for _n in nec_totals["necessity"]:
+                                st.session_state[f"nec_check_{_n}"] = False
+
+                    selected_nec = [
+                        nec for nec in nec_totals["necessity"]
+                        if st.checkbox(nec, value=True, key=f"nec_check_{nec}")
+                    ]
+
+                with nec_chart_col:
+                    nec_chart_data = nec_totals[nec_totals["necessity"].isin(selected_nec)]
+                    if nec_chart_data.empty:
+                        st.info("No necessity levels selected.")
+                    else:
+                        fig_nec = px.pie(
+                            nec_chart_data, values="amount", names="necessity",
+                            title="Expenditures by Necessity Level",
+                        )
+                        fig_nec.update_traces(
+                            textposition="inside",
+                            texttemplate="<b>%{label}</b><br>%{percent}<br>$%{value:,.2f}",
+                        )
+                        st.plotly_chart(fig_nec, use_container_width=True)
+
+            # ── Subcategory breakdown ─────────────────────────────────────────
             st.markdown("---")
             st.subheader("Category Breakdown by Subcategory")
 
@@ -223,9 +302,12 @@ if view == "Pie Chart":
                 else:
                     fig_sub = px.pie(
                         sub_totals, values="amount", names="subcategory",
-                        title=f"{selected_cat} — Subcategory Breakdown"
+                        title=f"{selected_cat} — Subcategory Breakdown",
                     )
-                    fig_sub.update_traces(textposition="inside", textinfo="percent+label")
+                    fig_sub.update_traces(
+                        textposition="inside",
+                        texttemplate="<b>%{label}</b><br>%{percent}<br>$%{value:,.2f}",
+                    )
                     st.plotly_chart(fig_sub, use_container_width=True)
 
 # ── Transactions table view ───────────────────────────────────────────────────
