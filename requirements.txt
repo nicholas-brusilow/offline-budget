@@ -1,2 +1,3 @@
 duckdb          # a package for SQL-like pandas exploration
 streamlit       # a package for GUI apps
+plotly          # interactive charts for the pie chart view

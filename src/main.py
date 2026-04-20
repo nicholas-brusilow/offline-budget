@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 from pathlib import Path
+from datetime import date
 
 ROOT = Path(__file__).parent.parent
 EXPENDITURES_PATH = ROOT / "expenditures.csv"
@@ -39,6 +41,7 @@ ALL_SUBCATEGORIES = [
     "utilities:AI subscription",
     "utilities:water",
     "utilities:gas",
+    "utilities:HOA",
     "eating out:coffee",
     "eating out:treats",
     "eating out:restaurant",
@@ -119,46 +122,152 @@ def load_deposits(path: Path) -> pd.DataFrame:
 
 st.set_page_config(page_title="Budget Transactions", layout="wide")
 
-tab = st.sidebar.radio("Transactions", ["Expenditures", "Deposits"])
-st.sidebar.markdown("**Single Period**")
+if "view" not in st.session_state:
+    st.session_state.view = "Expenditures"
 
-if tab == "Expenditures":
-    st.title("Expenditures")
-    path = EXPENDITURES_PATH
-    key = "exp_df"
-else:
-    st.title("Deposits")
-    path = DEPOSITS_PATH
-    key = "dep_df"
-
-if key not in st.session_state:
-    if tab == "Expenditures":
-        st.session_state[key] = load_expenditures(path)
-    else:
-        st.session_state[key] = load_deposits(path)
-
-column_config = EXPENDITURE_COLUMN_CONFIG if tab == "Expenditures" else DEPOSIT_COLUMN_CONFIG
-
-edited = st.data_editor(
-    st.session_state[key],
-    key=f"{key}_editor",
-    use_container_width=True,
-    num_rows="fixed",
-    column_config=column_config,
-    disabled=DISABLED_COLS,
-)
-
-col1, col2 = st.columns([1, 8])
-with col1:
-    if st.button("Delete Selected"):
-        kept = edited[~edited["_delete"]].copy()
-        kept["_delete"] = False
-        kept.drop(columns=["_delete"]).to_csv(path)
-        st.session_state[key] = kept
-        del st.session_state[f"{key}_editor"]
+st.sidebar.markdown("**Transactions**")
+for _opt in ["Expenditures", "Deposits"]:
+    if st.sidebar.button(
+        _opt, key=f"nav_{_opt}", use_container_width=True,
+        type="primary" if st.session_state.view == _opt else "secondary"
+    ):
+        st.session_state.view = _opt
         st.rerun()
-with col2:
-    if st.button("Save to CSV"):
-        st.session_state[key] = edited
-        edited.drop(columns=["_delete"]).to_csv(path)
-        st.success("Saved.")
+
+st.sidebar.markdown("**Single Period**")
+if st.sidebar.button(
+    "Pie Chart", key="nav_pie", use_container_width=True,
+    type="primary" if st.session_state.view == "Pie Chart" else "secondary"
+):
+    st.session_state.view = "Pie Chart"
+    st.rerun()
+
+view = st.session_state.view
+
+# ── Pie Chart view ────────────────────────────────────────────────────────────
+if view == "Pie Chart":
+    st.title("Pie Chart")
+
+    today = date.today()
+    first_of_month = today.replace(day=1)
+
+    ctrl1, ctrl2, ctrl3 = st.columns([1, 1, 1])
+    with ctrl1:
+        start_date = st.date_input("Start date", value=first_of_month)
+    with ctrl2:
+        end_date = st.date_input("End date", value=today)
+    with ctrl3:
+        data_type = st.radio("Show", ["Expenditures", "Deposits"], horizontal=True)
+
+    if data_type == "Expenditures":
+        raw = load_expenditures(EXPENDITURES_PATH)
+        raw = raw[raw["ignore"].str.lower() != "true"]
+    else:
+        raw = load_deposits(DEPOSITS_PATH)
+
+    raw["date"] = pd.to_datetime(raw["date"])
+    filtered = raw[
+        (raw["date"].dt.date >= start_date) &
+        (raw["date"].dt.date <= end_date)
+    ].copy()
+
+    if filtered.empty:
+        st.info("No transactions found for the selected period.")
+    else:
+        filtered["amount"] = filtered["amount"].abs()
+
+        # Category pie chart
+        cat_totals = (
+            filtered[filtered["category"] != ""]
+            .groupby("category", as_index=False)["amount"]
+            .sum()
+        )
+
+        if cat_totals.empty:
+            st.warning("No categorised transactions in this period.")
+        else:
+            fig_cat = px.pie(
+                cat_totals, values="amount", names="category",
+                title=f"{data_type} by Category"
+            )
+            fig_cat.update_traces(textposition="inside", textinfo="percent+label")
+            st.plotly_chart(fig_cat, use_container_width=True)
+
+        # Subcategory breakdown (expenditures only)
+        if data_type == "Expenditures":
+            st.markdown("---")
+            st.subheader("Category Breakdown by Subcategory")
+
+            cats_with_sub = sorted(
+                filtered[
+                    (filtered["subcategory"] != "") &
+                    (filtered["category"] != "")
+                ]["category"].unique().tolist()
+            )
+
+            if not cats_with_sub:
+                st.info("No subcategory data available for this period.")
+            else:
+                selected_cat = st.selectbox("Select category", cats_with_sub)
+                sub_totals = (
+                    filtered[
+                        (filtered["category"] == selected_cat) &
+                        (filtered["subcategory"] != "")
+                    ]
+                    .groupby("subcategory", as_index=False)["amount"]
+                    .sum()
+                )
+
+                if sub_totals.empty:
+                    st.info(f"No subcategory breakdown available for '{selected_cat}'.")
+                else:
+                    fig_sub = px.pie(
+                        sub_totals, values="amount", names="subcategory",
+                        title=f"{selected_cat} — Subcategory Breakdown"
+                    )
+                    fig_sub.update_traces(textposition="inside", textinfo="percent+label")
+                    st.plotly_chart(fig_sub, use_container_width=True)
+
+# ── Transactions table view ───────────────────────────────────────────────────
+else:
+    tab = view
+    if tab == "Expenditures":
+        st.title("Expenditures")
+        path = EXPENDITURES_PATH
+        key = "exp_df"
+    else:
+        st.title("Deposits")
+        path = DEPOSITS_PATH
+        key = "dep_df"
+
+    if key not in st.session_state:
+        if tab == "Expenditures":
+            st.session_state[key] = load_expenditures(path)
+        else:
+            st.session_state[key] = load_deposits(path)
+
+    column_config = EXPENDITURE_COLUMN_CONFIG if tab == "Expenditures" else DEPOSIT_COLUMN_CONFIG
+
+    edited = st.data_editor(
+        st.session_state[key],
+        key=f"{key}_editor",
+        use_container_width=True,
+        num_rows="fixed",
+        column_config=column_config,
+        disabled=DISABLED_COLS,
+    )
+
+    col1, col2 = st.columns([1, 8])
+    with col1:
+        if st.button("Delete Selected"):
+            kept = edited[~edited["_delete"]].copy()
+            kept["_delete"] = False
+            kept.drop(columns=["_delete"]).to_csv(path)
+            st.session_state[key] = kept
+            del st.session_state[f"{key}_editor"]
+            st.rerun()
+    with col2:
+        if st.button("Save to CSV"):
+            st.session_state[key] = edited
+            edited.drop(columns=["_delete"]).to_csv(path)
+            st.success("Saved.")
