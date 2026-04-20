@@ -50,6 +50,7 @@ ALL_SUBCATEGORIES = [
     "shopping:appliances",
     "shopping:tools",
     "shopping:office",
+    "shopping:baby",
     "services:cleaners",
     "insurance:home",
     "insurance:auto",
@@ -192,7 +193,7 @@ if view == "Pie Chart":
             st.warning("No categorised transactions in this period.")
         else:
             st.subheader(f"{data_type} by Category")
-            chk_col, chart_col = st.columns([1, 3])
+            chk_col, chart_col = st.columns([1, 4])
 
             with chk_col:
                 btn_a, btn_b = st.columns(2)
@@ -223,10 +224,64 @@ if view == "Pie Chart":
                         textposition="inside",
                         texttemplate="<b>%{label}</b><br>%{percent}<br>$%{value:,.2f}",
                     )
-                    st.plotly_chart(fig_cat, use_container_width=True)
+                    fig_cat.update_layout(height=700)
+                    cat_event = st.plotly_chart(
+                        fig_cat, use_container_width=True,
+                        on_select="rerun", key="cat_pie",
+                    )
+                    if cat_event.selection.points:
+                        st.session_state["cat_click_selected"] = (
+                            cat_event.selection.points[0]["label"]
+                        )
 
         if data_type == "Expenditures":
-            # ── Necessity level pie chart ─────────────────────────────────────
+            # ── Subcategory breakdown ─────────────────────────────────────────
+            st.markdown("---")
+            st.subheader("Category Breakdown by Subcategory")
+
+            cats_with_sub = sorted(
+                filtered[
+                    (filtered["subcategory"] != "") &
+                    (filtered["category"] != "")
+                ]["category"].unique().tolist()
+            )
+
+            if not cats_with_sub:
+                st.info("No subcategory data available for this period.")
+            else:
+                click_default = st.session_state.get("cat_click_selected")
+                default_idx = (
+                    cats_with_sub.index(click_default)
+                    if click_default in cats_with_sub
+                    else 0
+                )
+                selected_cat = st.selectbox(
+                    "Select category", cats_with_sub, index=default_idx
+                )
+                sub_totals = (
+                    filtered[
+                        (filtered["category"] == selected_cat) &
+                        (filtered["subcategory"] != "")
+                    ]
+                    .groupby("subcategory", as_index=False)["amount"]
+                    .sum()
+                )
+
+                if sub_totals.empty:
+                    st.info(f"No subcategory breakdown available for '{selected_cat}'.")
+                else:
+                    fig_sub = px.pie(
+                        sub_totals, values="amount", names="subcategory",
+                        title=f"{selected_cat} — Subcategory Breakdown",
+                    )
+                    fig_sub.update_traces(
+                        textposition="inside",
+                        texttemplate="<b>%{label}</b><br>%{percent}<br>$%{value:,.2f}",
+                    )
+                    fig_sub.update_layout(height=700)
+                    st.plotly_chart(fig_sub, use_container_width=True)
+
+            # ── Necessity level pie chart (bottom) ────────────────────────────
             st.markdown("---")
             st.subheader("Expenditures by Necessity Level")
 
@@ -240,7 +295,7 @@ if view == "Pie Chart":
             if nec_totals.empty:
                 st.info("No necessity data available for this period.")
             else:
-                nec_chk_col, nec_chart_col = st.columns([1, 3])
+                nec_chk_col, nec_chart_col = st.columns([1, 4])
 
                 with nec_chk_col:
                     nec_btn_a, nec_btn_b = st.columns(2)
@@ -271,44 +326,8 @@ if view == "Pie Chart":
                             textposition="inside",
                             texttemplate="<b>%{label}</b><br>%{percent}<br>$%{value:,.2f}",
                         )
+                        fig_nec.update_layout(height=700)
                         st.plotly_chart(fig_nec, use_container_width=True)
-
-            # ── Subcategory breakdown ─────────────────────────────────────────
-            st.markdown("---")
-            st.subheader("Category Breakdown by Subcategory")
-
-            cats_with_sub = sorted(
-                filtered[
-                    (filtered["subcategory"] != "") &
-                    (filtered["category"] != "")
-                ]["category"].unique().tolist()
-            )
-
-            if not cats_with_sub:
-                st.info("No subcategory data available for this period.")
-            else:
-                selected_cat = st.selectbox("Select category", cats_with_sub)
-                sub_totals = (
-                    filtered[
-                        (filtered["category"] == selected_cat) &
-                        (filtered["subcategory"] != "")
-                    ]
-                    .groupby("subcategory", as_index=False)["amount"]
-                    .sum()
-                )
-
-                if sub_totals.empty:
-                    st.info(f"No subcategory breakdown available for '{selected_cat}'.")
-                else:
-                    fig_sub = px.pie(
-                        sub_totals, values="amount", names="subcategory",
-                        title=f"{selected_cat} — Subcategory Breakdown",
-                    )
-                    fig_sub.update_traces(
-                        textposition="inside",
-                        texttemplate="<b>%{label}</b><br>%{percent}<br>$%{value:,.2f}",
-                    )
-                    st.plotly_chart(fig_sub, use_container_width=True)
 
 # ── Transactions table view ───────────────────────────────────────────────────
 else:
