@@ -352,8 +352,28 @@ else:
 
     column_config = EXPENDITURE_COLUMN_CONFIG if tab == "Expenditures" else DEPOSIT_COLUMN_CONFIG
 
+    # ── Filters (expenditures only) ───────────────────────────────────────────
+    display_df = st.session_state[key]
+    if tab == "Expenditures":
+        f1, f2 = st.columns(2)
+        full_df = st.session_state[key]
+        with f1:
+            cat_filter = st.multiselect(
+                "Filter by category",
+                options=sorted(c for c in full_df["category"].unique() if c),
+            )
+        with f2:
+            nec_filter = st.multiselect(
+                "Filter by necessity",
+                options=sorted(n for n in full_df["necessity"].unique() if n),
+            )
+        if cat_filter:
+            display_df = display_df[display_df["category"].isin(cat_filter)]
+        if nec_filter:
+            display_df = display_df[display_df["necessity"].isin(nec_filter)]
+
     edited = st.data_editor(
-        st.session_state[key],
+        display_df,
         key=f"{key}_editor",
         use_container_width=True,
         num_rows="fixed",
@@ -364,14 +384,17 @@ else:
     col1, col2 = st.columns([1, 8])
     with col1:
         if st.button("Delete Selected"):
-            kept = edited[~edited["_delete"]].copy()
-            kept["_delete"] = False
-            kept.drop(columns=["_delete"]).to_csv(path)
-            st.session_state[key] = kept
+            full_df = st.session_state[key].copy()
+            full_df = full_df.drop(index=edited[edited["_delete"]].index)
+            full_df["_delete"] = False
+            full_df.drop(columns=["_delete"]).to_csv(path)
+            st.session_state[key] = full_df
             del st.session_state[f"{key}_editor"]
             st.rerun()
     with col2:
         if st.button("Save to CSV"):
-            st.session_state[key] = edited
-            edited.drop(columns=["_delete"]).to_csv(path)
+            full_df = st.session_state[key].copy()
+            full_df.loc[edited.index, edited.columns] = edited
+            st.session_state[key] = full_df
+            full_df.drop(columns=["_delete"]).to_csv(path)
             st.success("Saved.")
