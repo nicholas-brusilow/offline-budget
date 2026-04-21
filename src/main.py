@@ -100,7 +100,7 @@ EXPENDITURE_COLUMN_CONFIG = {
     "merchant": st.column_config.SelectboxColumn("Merchant", options=[""] + MERCHANTS),
     "ignore": st.column_config.SelectboxColumn("Ignore", options=["False", "True"]),
     "necessity": st.column_config.SelectboxColumn("Necessity", options=[""] + NECESSITY),
-    "period_scale": st.column_config.SelectboxColumn("Period Scale", options=["False", "True"]),
+    "period_scale": st.column_config.SelectboxColumn("Year Scale", options=["False", "True"]),
     **DELETE_COL_CONFIG,
 }
 
