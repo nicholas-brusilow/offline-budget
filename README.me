@@ -21,3 +21,9 @@ Then, open the data_combining.ipynb notebook and run the cell there.
 Finally, open the terminal in jupyter and run the command "python3 streamlit run src/main.py". It will then provide you a link that will open in your browser that lets you access the application.
 
 To close it, just press CTRL+C in the Jupyter terminal, then run "docker compose down" in your machine's terminal.
+
+### Explanation of Options
+
+The "Period Scale" option in the table view is for scaling down once-yearly transactions. It is set to False by default. If, for example, you have a $3000 once-yearly home insurance payment, but are viewing that transaction in a one-month window, it will be scaled down to one-twelfth of its size in the graphs to accurately display how much was spent *for that period* in that category. This is so large, infrequent trasacttions don't skew and mess up the data visualization.
+
+I'm still thinking about how this feature will interact with things like bi-yearly transactions.
