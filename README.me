@@ -1,10 +1,16 @@
 # offline-budget
 
+### By Nicholas Brusilow
+
+*work in progress as of 21 April 2026*
+
 An analysis tool for deep dives into personal spending and budget, designed for privacy-conscious individuals. It uses only .csv bank statments downloaded from the bank and does not connect to the internet.
 
 ### Instructions for Usage
 
-So far, this only works for .csv file statements downloaded from Chase bank or Alliant Credit Union. I'm sure Claude Code can figure out how to make it work with your .csv bank statement though.
+So far, this only works for .csv file statements downloaded from Discover, Chase bank or Alliant Credit Union. I'm sure Claude Code can figure out how to make it work with your .csv bank statement though.
+
+It's a bit funny how I have it set up. I actually run this in a jupyter scipy container, since that container can run python pretty well and you don't need to docker up and docker down every time you change something. It would be easy to modify the docker containerization to just run it with a python3-slim build.
 
 Once you pull the repo, navigate to the root directory and run the command "docker compose up --build". This will build the jupyter container image. You can then launch jupyter by navigating to http://localhost:8888/lab in your browser.
 
